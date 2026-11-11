@@ -1,4 +1,4 @@
-use std::io;
+use std::{char::CharTryFromError, io, process::exit};
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 
@@ -64,6 +64,16 @@ impl ConnectFourBoard {
     pub const FORWARD_DIAGONAL: Self = Self { inner: 0x8040201 };
     pub const BACKWARD_DIAGONAL: Self = Self { inner: 0x1020408 };
 
+    pub const VERTICAL_START: Self = Self { inner: 0x7F7F7F000000 }; // all bits where a vertical win can originate
+    pub const HORIZONTAL_START: Self = Self { inner: 0xF0F0F0F0F0F }; // all bits where a horizontal win can originate
+    pub const FORWARD_DIAGONAL_START: Self = Self { inner: 0xF0F0F }; // all bits where a forward diagonal win can originate
+    pub const BACKWARD_DIAGONAL_START: Self = Self { inner: 0x787878 }; // all buits where a backward diagonal win can originate
+
+    pub const FOUR_CHECK_START: Self = Self { inner: 0x80808 }; // bits where all 4 win conditions must be checked
+    pub const THREE_CHECK_START: Self = Self { inner: 0x70707 }; // bits where only vertical, horizontal, and forward diagonal wins are checked
+    pub const TWO_CHECK_START: Self = Self { inner: 0x707070 }; // bits where only vertical and backward diagonal wins are checked
+    pub const ONE_CHECK_START: Self = Self { inner: 0xF0F0F000000 }; // bits where only horizontal wins are checked
+
     pub const ROWS: [Self; 6] = [
         Self::ROW_1,
         Self::ROW_2,
@@ -88,6 +98,20 @@ impl ConnectFourBoard {
         Self::HORIZONTAL,
         Self::FORWARD_DIAGONAL,
         Self::BACKWARD_DIAGONAL,
+    ];
+
+    pub const WIN_STARTS: [Self; 4] = [
+        Self::VERTICAL_START,
+        Self::HORIZONTAL_START,
+        Self::FORWARD_DIAGONAL_START,
+        Self::BACKWARD_DIAGONAL_START,
+    ];
+
+    pub const BUNDLED_CHECK_STARTS: [Self; 4] = [
+        Self::FOUR_CHECK_START,
+        Self::THREE_CHECK_START,
+        Self::TWO_CHECK_START,
+        Self::ONE_CHECK_START,
     ];
 
     fn get_current_board(self, other_board: &ConnectFourBoard) -> ConnectFourBoard {
@@ -192,16 +216,95 @@ fn get_chosen_column() -> ConnectFourBoard {
 
 fn player_turn(player: Player, mut red_board: ConnectFourBoard, mut yellow_board: ConnectFourBoard) -> (ConnectFourBoard, ConnectFourBoard) {
     println!("It is player {player}'s turn:");
+
     let desired_column = get_chosen_column();
     let current_board = red_board.get_current_board(&yellow_board);
     let lowest_spot = current_board.find_lowest_space_in_column(desired_column);
+
     match player {
-        Player::Red => red_board.place_token_in_spot(lowest_spot),
-        Player::Yellow => yellow_board.place_token_in_spot(lowest_spot),
+        Player::Red => {
+            red_board.place_token_in_spot(lowest_spot);
+            check_win(&red_board);}
+        Player::Yellow => {
+            yellow_board.place_token_in_spot(lowest_spot);
+            check_win(&yellow_board);}
             }
+        
+    print_full_board(&red_board, &yellow_board);
     
     return (red_board, yellow_board);
 }
+
+fn check_win(player_board: &ConnectFourBoard) { 
+    let player_board: u64 = player_board.inner;
+    vertical_checks(&player_board);
+    horizontal_checks(&player_board);
+    forward_diagonal_checks(&player_board);
+    backward_diagonal_checks(&player_board);
+
+}
+
+fn vertical_checks(player_board: &u64) {
+    // only check vertical win with newest_token at the top
+    // vertical win goes up 4 rows from the starting point
+    for offset in 0..23 {
+        let vertical_mask = ConnectFourBoard::VERTICAL.inner << offset;
+        if vertical_mask == (vertical_mask & player_board) {
+            println!("Winner!");
+            exit(0);
+        } else {
+            continue;
+        }
+    }
+}
+
+fn horizontal_checks(player_board: &u64) {
+    for column in 0..4 { // only the first 4 columns can fit a horizontal win
+        for row in 0..6 { // board is 6 rows high
+            let offset = column + (8 * row); // 
+            let horizontal_mask = ConnectFourBoard::HORIZONTAL.inner << offset;
+            if horizontal_mask == (horizontal_mask & player_board) {
+                println!("Winner!");
+                exit(0);
+            } else {
+                continue;
+            }
+        }
+    }
+}
+
+fn forward_diagonal_checks(player_board: &u64) {
+    for column in 0..4 { // only the first 4 columns can fit a forward-diagonal win
+        for row in 0..3 { // only the lowest 3 rows can fit a diagonal win
+            let offset = column + (8 * row); // 8 bits to move up a row
+            let forward_diagonal_mask = ConnectFourBoard::FORWARD_DIAGONAL.inner << offset;
+            if forward_diagonal_mask == (forward_diagonal_mask & player_board) {
+                println!("Winner!");
+                exit(0);
+            } else {
+                continue;
+            }
+        }
+    }
+}
+
+fn backward_diagonal_checks(player_board: &u64) {
+    for column in 3..7 { // only the last 4 columns can fit a forward-diagonal win
+        for row in 0..3 { // only the lowest 3 rows can fit a diagonal win
+            let offset = column + (8 * row); // 8 bits to move up a row
+            let backward_diagonal_mask = ConnectFourBoard::BACKWARD_DIAGONAL.inner << offset;
+            if backward_diagonal_mask == (backward_diagonal_mask & player_board) {
+                println!("Winner!");
+                exit(0);
+            } else {
+                continue;
+            }
+        }
+    }
+}
+
+
+
 
 fn main() {
     print_intro_text();
@@ -217,8 +320,6 @@ fn main() {
     loop {
         for player in Player::iter() {
             (red_board, yellow_board) = player_turn(player, red_board, yellow_board);
-            
-            print_full_board(&red_board, &yellow_board);
         }
     }
 }
