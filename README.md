@@ -9,14 +9,14 @@ A 7 wide board does not fit into sqrt(64) such as with chess' 8-wide board
 We use the standard chess bitboard implementation, but ignore the final column and top 2 rows, instead of re-factoring chess engine documentation for 7-wide boards
 
 Chess board, for reference
-8|56,57,58,59,60,61,62,63|\n
-7|48,49,50,51,52,53,54,55|\n
-6|40,41,42,43,44,45,46,47|\n
-5|32,33,34,35,36,36,38,39|\n
-4|24,25,26,27,28,29,30,31|\n
-3|16,17,18,19,20,21,22,23|\n
-2|8 ,9 ,10,11,12,13,14,15|\n
-1|0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 |\n
+8|56,57,58,59,60,61,62,63|
+7|48,49,50,51,52,53,54,55|
+6|40,41,42,43,44,45,46,47|
+5|32,33,34,35,36,36,38,39|
+4|24,25,26,27,28,29,30,31|
+3|16,17,18,19,20,21,22,23|
+2|8 ,9 ,10,11,12,13,14,15|
+1|0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 |
   A ,B ,C ,D ,E ,F ,G ,H
 
 ConnectFourBoard, with the chess bit values, for reference
