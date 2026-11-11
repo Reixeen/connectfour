@@ -105,11 +105,11 @@ impl ConnectFourBoard {
         // input the full board and the chosen column for the next token
         let current_board_u64 = self.inner;
 
-        // invert full board -> apply the column mask -> find leading zeros/ LSB
+        // invert full board -> apply the column mask -> find least significant bit
         let empty_spots_in_column = !current_board_u64 & chosen_column.inner;
         let lsb: u64 = empty_spots_in_column.trailing_zeros().into();
 
-        // shift LSB from 1 to get the bit before LSB
+        // shift LSB from 1 to get the bit 1 higher than LSB
         let lowest_space: u64 = 1u64 << (lsb);
 
         // return a board with only the desired spot filled
@@ -190,6 +190,19 @@ fn get_chosen_column() -> ConnectFourBoard {
     }
 }
 
+fn player_turn(player: Player, mut red_board: ConnectFourBoard, mut yellow_board: ConnectFourBoard) -> (ConnectFourBoard, ConnectFourBoard) {
+    println!("It is player {player}'s turn:");
+    let desired_column = get_chosen_column();
+    let current_board = red_board.get_current_board(&yellow_board);
+    let lowest_spot = current_board.find_lowest_space_in_column(desired_column);
+    match player {
+        Player::Red => red_board.place_token_in_spot(lowest_spot),
+        Player::Yellow => yellow_board.place_token_in_spot(lowest_spot),
+            }
+    
+    return (red_board, yellow_board);
+}
+
 fn main() {
     print_intro_text();
 
@@ -203,16 +216,8 @@ fn main() {
 
     loop {
         for player in Player::iter() {
-            println!("It is player {player}'s turn:");
-            let desired_column = get_chosen_column();
-            let current_board = red_board.get_current_board(&yellow_board);
-            let lowest_spot = current_board.find_lowest_space_in_column(desired_column);
-
-            match player {
-                Player::Red => red_board.place_token_in_spot(lowest_spot),
-                Player::Yellow => yellow_board.place_token_in_spot(lowest_spot),
-            }
-
+            (red_board, yellow_board) = player_turn(player, red_board, yellow_board);
+            
             print_full_board(&red_board, &yellow_board);
         }
     }
