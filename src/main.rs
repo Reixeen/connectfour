@@ -6,10 +6,34 @@ use strum_macros::{Display, EnumIter};
     sides: [ConnectFourBoard; 2],
 }
  */
+
 #[derive(Debug, EnumIter, Display)]
 pub enum Player {
     Red,
     Yellow,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct WinningLocations {
+    max_row: u8, // all win types start at row 0
+    starting_column: u8, // backward_diagonal win type has to start on row 3
+    ending_column: u8, // forward diagonal win type has to end on column 4
+    win_type: ConnectFourBoard,
+}
+
+impl WinningLocations {
+    pub const VERTICAL: Self = Self { max_row: 3,starting_column: 0, ending_column: 7, win_type: ConnectFourBoard::VERTICAL};
+    pub const HORIZONTAL: Self = Self { max_row: 6, starting_column: 0, ending_column: 4, win_type: ConnectFourBoard::HORIZONTAL};
+    pub const FORWARD_DIAGONAL: Self = Self { max_row: 3, starting_column: 0, ending_column: 4, win_type: ConnectFourBoard::FORWARD_DIAGONAL};
+    pub const BACKWARD_DIAGONAL: Self = Self { max_row: 3, starting_column: 3, ending_column: 7, win_type: ConnectFourBoard::BACKWARD_DIAGONAL};
+
+    pub const WINNING_LOCATIONS: [Self; 4] = [
+        Self::VERTICAL,
+        Self::HORIZONTAL,
+        Self::FORWARD_DIAGONAL,
+        Self::BACKWARD_DIAGONAL,
+    ];
+    
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
@@ -99,6 +123,10 @@ impl ConnectFourBoard {
     }
 }
 
+fn print_intro_text() {
+    println!("Welcome to Connect Four!")
+}
+
 fn print_full_board(red_board: &ConnectFourBoard, yellow_board: &ConnectFourBoard) {
     let red = red_board.inner;
     let yellow = yellow_board.inner;
@@ -133,10 +161,6 @@ fn match_column_to_column(column: u8) -> Result<ConnectFourBoard, &'static str> 
     }
 }
 
-fn print_intro_text() {
-    println!("Welcome to Connect Four!")
-}
-
 fn get_valid_integer() -> u8 {
     loop {
         let mut input = String::new();
@@ -165,12 +189,12 @@ fn get_chosen_column() -> ConnectFourBoard {
         Err(msg) => {
             // if valid integer is not between 1 and 7 inclusive
             println!("{msg}");
-            get_chosen_column() // request a new input 
+            get_chosen_column() // call the function again - more fun than the loop{} in get_valid_integer()
         }
     }
 }
 
-fn player_turn(
+fn player_turn( // function to collate all turn logic
     player: Player,
     mut red_board: ConnectFourBoard,
     mut yellow_board: ConnectFourBoard,
@@ -181,7 +205,7 @@ fn player_turn(
     let current_board = red_board.get_current_board(&yellow_board);
     let lowest_spot = current_board.find_lowest_space_in_column(desired_column);
 
-    match player {
+    match player { // not the most idiomatic solution...
         Player::Red => {
             red_board.place_token_in_spot(lowest_spot);
             check_win(&red_board);
@@ -197,46 +221,25 @@ fn player_turn(
     (red_board, yellow_board)
 }
 
-fn check_win(player_board: &ConnectFourBoard) {
-    let player_board: u64 = player_board.inner;
-    for check in WinningLocations::WINNING_LOCATIONS {
-        generic_check(&player_board, &check);
+fn check_win(player_board: &ConnectFourBoard) { // only need to scan the current players board
+    let player_board: u64 = player_board.inner; // extract u64 only once instead of per check
+    for check_type in WinningLocations::WINNING_LOCATIONS { 
+        // currently scans all possible win patterns and positions
+        generic_check(&player_board, &check_type);
     }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct WinningLocations {
-    max_row: u8, // all win types start at row 0
-    starting_column: u8, // backward_diagonal win type has to start on row 3
-    ending_column: u8, // forward diagonal win type has to end on column 4
-    win_type: ConnectFourBoard,
-}
-
-impl WinningLocations {
-    pub const VERTICAL: Self = Self { max_row: 3,starting_column: 0, ending_column: 7, win_type: ConnectFourBoard::VERTICAL};
-    pub const HORIZONTAL: Self = Self { max_row: 6, starting_column: 0, ending_column: 4, win_type: ConnectFourBoard::HORIZONTAL};
-    pub const FORWARD_DIAGONAL: Self = Self { max_row: 3, starting_column: 0, ending_column: 4, win_type: ConnectFourBoard::FORWARD_DIAGONAL};
-    pub const BACKWARD_DIAGONAL: Self = Self { max_row: 3, starting_column: 3, ending_column: 7, win_type: ConnectFourBoard::BACKWARD_DIAGONAL};
-
-    pub const WINNING_LOCATIONS: [Self; 4] = [
-        Self::VERTICAL,
-        Self::HORIZONTAL,
-        Self::FORWARD_DIAGONAL,
-        Self::BACKWARD_DIAGONAL,
-    ];
-    
 }
 
 fn generic_check(player_board: &u64, check_type: &WinningLocations) { // function that can check any type of win
     let starting_column = check_type.starting_column;
     let max_row = check_type.max_row;
     let ending_column = check_type.ending_column;
-    let mask = check_type.win_type;
+
+    let mask = check_type.win_type.inner; // get mask and convert to u64 immediately
 
     for column in starting_column..ending_column { 
         for row in 0..max_row { // all checks can be done starting from row 0 upwards
             let offset = column + (8 * row); // << 8 moves the check up 1 row in 8x8 bitboard
-            let mask = mask.inner << offset;
+            let mask = mask << offset;
             if mask == (mask & player_board) {
                 println!("Winner!");
                 exit(0);
@@ -253,8 +256,11 @@ fn main() {
     let mut red_board = ConnectFourBoard::new();
     let mut yellow_board = ConnectFourBoard::new();
     
-    //let mut red_board = ConnectFourBoard { inner: 0x505051D }; // partly filled board for testing
-    //let mut yellow_board = ConnectFourBoard { inner: 0x400202222 }; // partly filled board for testing
+    //let mut red_board = ConnectFourBoard { inner: 0x505051D }; 
+    // partly filled board for testing
+
+    //let mut yellow_board = ConnectFourBoard { inner: 0x400202222 }; 
+    // partly filled board for testing
 
     print_full_board(&red_board, &yellow_board);
 
