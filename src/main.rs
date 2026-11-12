@@ -199,89 +199,45 @@ fn player_turn(
 
 fn check_win(player_board: &ConnectFourBoard) {
     let player_board: u64 = player_board.inner;
-    vertical_checks(&player_board);
-    horizontal_checks(&player_board);
-    forward_diagonal_checks(&player_board);
-    backward_diagonal_checks(&player_board);
-}
-
-struct Newcheck {
-    column: u8,
-    row: u8
-}
-
-
-
-fn generic_check(player_board: &u64, check_type: &Newcheck) {
-    for column in 0..4 { // only the first 4 columns can fit a horizontal win
-        for row in 0..6 { // board is 6 rows high
-            let offset = column + (8 * row); // 
-            let horizontal_mask = ConnectFourBoard::HORIZONTAL.inner << offset;
-            if horizontal_mask == (horizontal_mask & player_board) {
-                println!("Winner!");
-                exit(0);
-            } else {
-                continue;
-            }
-        }
+    for check in WinningLocations::WINNING_LOCATIONS {
+        generic_check(&player_board, &check);
     }
 }
 
-fn vertical_checks(player_board: &u64) {
-    // vertical win goes up 4 rows from the starting point
-    for offset in 0..23 { // the entire lowest 3 rows can start a vertical win
-        let vertical_mask = ConnectFourBoard::VERTICAL.inner << offset;
-        if vertical_mask == (vertical_mask & player_board) {
-            println!("Winner!");
-            exit(0);
-        } else {
-            continue;
-        }
-    }
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct WinningLocations {
+    max_row: u8, // all win types start at row 0
+    starting_column: u8, // backward_diagonal win type has to start on row 3
+    ending_column: u8, // forward diagonal win type has to end on column 4
+    win_type: ConnectFourBoard,
 }
 
-fn horizontal_checks(player_board: &u64) {
-    for column in 0..4 {
-        // only the first 4 columns can fit a horizontal win
-        for row in 0..6 {
-            // board is 6 rows high
-            let offset = column + (8 * row); // 
-            let horizontal_mask = ConnectFourBoard::HORIZONTAL.inner << offset;
-            if horizontal_mask == (horizontal_mask & player_board) {
-                println!("Winner!");
-                exit(0);
-            } else {
-                continue;
-            }
-        }
-    }
+impl WinningLocations {
+    pub const VERTICAL: Self = Self { max_row: 3,starting_column: 0, ending_column: 7, win_type: ConnectFourBoard::VERTICAL};
+    pub const HORIZONTAL: Self = Self { max_row: 6, starting_column: 0, ending_column: 4, win_type: ConnectFourBoard::HORIZONTAL};
+    pub const FORWARD_DIAGONAL: Self = Self { max_row: 3, starting_column: 0, ending_column: 4, win_type: ConnectFourBoard::FORWARD_DIAGONAL};
+    pub const BACKWARD_DIAGONAL: Self = Self { max_row: 3, starting_column: 3, ending_column: 7, win_type: ConnectFourBoard::BACKWARD_DIAGONAL};
+
+    pub const WINNING_LOCATIONS: [Self; 4] = [
+        Self::VERTICAL,
+        Self::HORIZONTAL,
+        Self::FORWARD_DIAGONAL,
+        Self::BACKWARD_DIAGONAL,
+    ];
+    
 }
 
-fn forward_diagonal_checks(player_board: &u64) {
-    for column in 0..4 {
-        // only the first 4 columns can fit a forward-diagonal win
-        for row in 0..3 {
-            // only the lowest 3 rows can fit a diagonal win
-            let offset = column + (8 * row); // 8 bits to move up a row
-            let forward_diagonal_mask = ConnectFourBoard::FORWARD_DIAGONAL.inner << offset;
-            if forward_diagonal_mask == (forward_diagonal_mask & player_board) {
-                println!("Winner!");
-                exit(0);
-            } else {
-                continue;
-            }
-        }
-    }
-}
+fn generic_check(player_board: &u64, check_type: &WinningLocations) { // function that can check any type of win
+    let starting_column = check_type.starting_column;
+    let max_row = check_type.max_row;
+    let ending_column = check_type.ending_column;
+    let mask = check_type.win_type;
 
-fn backward_diagonal_checks(player_board: &u64) {
-    for column in 3..7 {
-        // only the last 4 columns can fit a forward-diagonal win
-        for row in 0..3 {
-            // only the lowest 3 rows can fit a diagonal win
-            let offset = column + (8 * row); // 8 bits to move up a row
-            let backward_diagonal_mask = ConnectFourBoard::BACKWARD_DIAGONAL.inner << offset;
-            if backward_diagonal_mask == (backward_diagonal_mask & player_board) {
+    for column in starting_column..ending_column { 
+        for row in 0..max_row { // all checks can be done starting from row 0 upwards
+            let offset = column + (8 * row); // << 8 moves the check up 1 row in 8x8 bitboard
+            let mask = mask.inner << offset;
+            if mask == (mask & player_board) {
                 println!("Winner!");
                 exit(0);
             } else {
@@ -296,7 +252,7 @@ fn main() {
 
     let mut red_board = ConnectFourBoard::new();
     let mut yellow_board = ConnectFourBoard::new();
-
+    
     //let mut red_board = ConnectFourBoard { inner: 0x505051D }; // partly filled board for testing
     //let mut yellow_board = ConnectFourBoard { inner: 0x400202222 }; // partly filled board for testing
 
