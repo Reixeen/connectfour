@@ -205,10 +205,31 @@ fn check_win(player_board: &ConnectFourBoard) {
     backward_diagonal_checks(&player_board);
 }
 
+struct Newcheck {
+    column: u8,
+    row: u8
+}
+
+
+
+fn generic_check(player_board: &u64, check_type: &Newcheck) {
+    for column in 0..4 { // only the first 4 columns can fit a horizontal win
+        for row in 0..6 { // board is 6 rows high
+            let offset = column + (8 * row); // 
+            let horizontal_mask = ConnectFourBoard::HORIZONTAL.inner << offset;
+            if horizontal_mask == (horizontal_mask & player_board) {
+                println!("Winner!");
+                exit(0);
+            } else {
+                continue;
+            }
+        }
+    }
+}
+
 fn vertical_checks(player_board: &u64) {
-    // only check vertical win with newest_token at the top
     // vertical win goes up 4 rows from the starting point
-    for offset in 0..23 {
+    for offset in 0..23 { // the entire lowest 3 rows can start a vertical win
         let vertical_mask = ConnectFourBoard::VERTICAL.inner << offset;
         if vertical_mask == (vertical_mask & player_board) {
             println!("Winner!");
