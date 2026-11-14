@@ -1,9 +1,10 @@
-use std::{char::CharTryFromError, io, process::exit};
+use std::{io, process::exit};
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 
-use crate::connect_four_board::ConnectFourBoard;
 mod connect_four_board;
+use crate::connect_four_board::ConnectFourBoard;
+use crate::connect_four_board::WinningLocations;
 
 /* pub struct Position {
     sides: [ConnectFourBoard; 2],
@@ -16,47 +17,31 @@ pub enum Player {
     Yellow,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub struct WinningLocations {
-    max_row: u8, // all win types start at row 0
-    starting_column: u8, // backward_diagonal win type has to start on row 3
-    ending_column: u8, // forward diagonal win type has to end on column 4
-    win_type: ConnectFourBoard,
-}
-
-impl WinningLocations {
-    pub const VERTICAL: Self = Self { max_row: 3,starting_column: 0, ending_column: 7, win_type: ConnectFourBoard::VERTICAL};
-    pub const HORIZONTAL: Self = Self { max_row: 6, starting_column: 0, ending_column: 4, win_type: ConnectFourBoard::HORIZONTAL};
-    pub const FORWARD_DIAGONAL: Self = Self { max_row: 3, starting_column: 0, ending_column: 4, win_type: ConnectFourBoard::FORWARD_DIAGONAL};
-    pub const BACKWARD_DIAGONAL: Self = Self { max_row: 3, starting_column: 3, ending_column: 7, win_type: ConnectFourBoard::BACKWARD_DIAGONAL};
-
-    pub const WINNING_LOCATIONS: [Self; 4] = [
-        Self::VERTICAL,
-        Self::HORIZONTAL,
-        Self::FORWARD_DIAGONAL,
-        Self::BACKWARD_DIAGONAL,
-    ];
-    
-}
-
 fn print_intro_text() {
     println!("Welcome to Connect Four!")
 }
 
 fn print_full_board(red_board: &ConnectFourBoard, yellow_board: &ConnectFourBoard) {
+    // adjusted the Rustic Chess board print function to work for:
+    // 6-tall, 7-wide, boards + 2 players
     let red = red_board.inner;
     let yellow = yellow_board.inner;
 
     const LAST_BIT: u64 = 63; // start at final bit
+    // bitboard unfurls from bottom left corner
+    // we need to print it from the top left.
 
     for row in 2..8 {
+        // skip the top 2 rows Connect Four does not use
         for column in (1..8).rev() {
+            // ignore end column + print from top row
             let mask = 1u64 << (LAST_BIT - (row * 8) - column);
             match (red & mask, yellow & mask) {
+                // each slot can only have 1 player's token - check both at the same time
                 (0, 0) => print!("_ "), // empty slot for both boards
                 (_, 0) => print!("R "), // only red board has a token there
                 (0, _) => print!("Y "), // only yellow board has a token there
-                (_, _) => panic!("Both boards have a token here??"), // not reachable due to token placement logic
+                (_, _) => panic!("Both boards have a token here??"), // not reachable due to token placement logic - required for exhasutive match
             }
         }
         println!(); // new line at the end of each row
@@ -85,9 +70,7 @@ fn get_valid_integer() -> u8 {
             .read_line(&mut input)
             .expect("Failed to read line");
 
-        let trimmed = input.trim();
-
-        match trimmed.parse::<u8>() {
+        match input.trim().parse::<u8>() {
             Ok(num) => return num,
             Err(_) => println!("Invalid input. Please enter a valid integer."),
         }
@@ -110,7 +93,8 @@ fn get_chosen_column() -> ConnectFourBoard {
     }
 }
 
-fn player_turn( // function to collate all turn logic
+fn player_turn(
+    // function to collate all turn logic
     player: Player,
     mut red_board: ConnectFourBoard,
     mut yellow_board: ConnectFourBoard,
@@ -121,7 +105,8 @@ fn player_turn( // function to collate all turn logic
     let current_board = red_board.get_current_board(&yellow_board);
     let lowest_spot = current_board.find_lowest_space_in_column(desired_column);
 
-    match player { // not the most idiomatic solution...
+    match player {
+        // not the most idiomatic solution...
         Player::Red => {
             red_board.place_token_in_spot(lowest_spot);
             check_win(&red_board);
@@ -137,24 +122,29 @@ fn player_turn( // function to collate all turn logic
     (red_board, yellow_board)
 }
 
-fn check_win(player_board: &ConnectFourBoard) { // only need to scan the current players board
+fn check_win(player_board: &ConnectFourBoard) {
+    // only need to scan the current players board
     let player_board: u64 = player_board.inner; // extract u64 only once instead of per check
-    for check_type in WinningLocations::WINNING_LOCATIONS { 
+    for check_type in WinningLocations::WINNING_LOCATIONS {
         // currently scans all possible win patterns and positions
         generic_check(player_board, check_type);
     }
 }
 
-fn generic_check(player_board: u64, check_type: WinningLocations) { // function that can check any type of win
+fn generic_check(player_board: u64, check_type: WinningLocations) {
+    // function that can check any type of win
     let starting_column = check_type.starting_column;
     let max_row = check_type.max_row;
     let ending_column = check_type.ending_column;
 
     let mask = check_type.win_type.inner; // get mask and get u64
 
-    for column in starting_column..ending_column { 
-        for row in 0..max_row { // all checks can be done starting from row 0 upwards
-            let offset = column + (8 * row); // << 8 moves the check up 1 row in 8x8 bitboard
+    let row_offset = ConnectFourBoard::ROW_OFFSET; // << offset of 8 moves the check up 1 row in 8x8 bitboard
+
+    for column in starting_column..ending_column {
+        for row in 0..max_row {
+            // all checks start at row 0 upwards, but not all have the same height
+            let offset = column + (row_offset * row);
             let mask = mask << offset;
             if mask == (mask & player_board) {
                 println!("Winner!");
@@ -171,11 +161,11 @@ fn main() {
 
     let mut red_board = ConnectFourBoard::new();
     let mut yellow_board = ConnectFourBoard::new();
-    
-    //let mut red_board = ConnectFourBoard { inner: 0x505051D }; 
+
+    //let mut red_board = ConnectFourBoard { inner: 0x505051D };
     // partly filled board for testing
 
-    //let mut yellow_board = ConnectFourBoard { inner: 0x400202222 }; 
+    //let mut yellow_board = ConnectFourBoard { inner: 0x400202222 };
     // partly filled board for testing
 
     print_full_board(&red_board, &yellow_board);

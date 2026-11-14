@@ -7,7 +7,7 @@ pub struct ConnectFourBoard {
     pub inner: u64,
 }
 impl ConnectFourBoard {
-     pub fn new() -> Self {
+    pub fn new() -> Self {
         Self { inner: 0x0 }
     }
 
@@ -60,6 +60,8 @@ impl ConnectFourBoard {
         Self::BACKWARD_DIAGONAL,
     ];
 
+    pub const ROW_OFFSET: u8 = 8;
+
     pub fn get_current_board(self, other_board: &ConnectFourBoard) -> ConnectFourBoard {
         ConnectFourBoard {
             // return a new board combining both boards - not the cleanest way of doing this.
@@ -87,4 +89,46 @@ impl ConnectFourBoard {
             inner: lowest_space,
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct WinningLocations {
+    pub max_row: u8,         // all win types start at row 0 but vary in height
+    pub starting_column: u8, // backward_diagonal win type is 4-wide and covers (0,1,2,3) when left-most
+    pub ending_column: u8, // forward diagonal win type is 4-wide and covers (3,4,5,6) when right-most
+    pub win_type: ConnectFourBoard,
+}
+
+impl WinningLocations {
+    pub const VERTICAL: Self = Self {
+        max_row: 3,
+        starting_column: 0,
+        ending_column: 7,
+        win_type: ConnectFourBoard::VERTICAL,
+    };
+    pub const HORIZONTAL: Self = Self {
+        max_row: 6,
+        starting_column: 0,
+        ending_column: 4,
+        win_type: ConnectFourBoard::HORIZONTAL,
+    };
+    pub const FORWARD_DIAGONAL: Self = Self {
+        max_row: 3,
+        starting_column: 0,
+        ending_column: 4,
+        win_type: ConnectFourBoard::FORWARD_DIAGONAL,
+    };
+    pub const BACKWARD_DIAGONAL: Self = Self {
+        max_row: 3,
+        starting_column: 3,
+        ending_column: 7,
+        win_type: ConnectFourBoard::BACKWARD_DIAGONAL,
+    };
+
+    pub const WINNING_LOCATIONS: [Self; 4] = [
+        Self::VERTICAL,
+        Self::HORIZONTAL,
+        Self::FORWARD_DIAGONAL,
+        Self::BACKWARD_DIAGONAL,
+    ];
 }
