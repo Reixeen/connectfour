@@ -1,6 +1,23 @@
-//use std::{char::CharTryFromError, io, process::exit};
-//use strum::IntoEnumIterator;
-//use strum_macros::{Display, EnumIter};
+use std::{char::CharTryFromError, io, process::exit};
+use strum::IntoEnumIterator;
+use strum_macros::{Display, EnumIter};
+
+use std::{fs::OpenOptions, io::Write};
+
+#[derive(Debug, EnumIter, Display)]
+pub enum Player {
+    Red,
+    Yellow,
+}
+impl Player {
+    pub fn get_board(self, all_boards: AllBoards) -> ConnectFourBoard {
+        match self {
+            // not the most idiomatic solution...
+            Player::Red => all_boards.red,
+            Player::Yellow => all_boards.yellow,
+        }
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct ConnectFourBoard {
@@ -9,6 +26,35 @@ pub struct ConnectFourBoard {
 impl ConnectFourBoard {
     pub fn new() -> Self {
         Self { inner: 0x0 }
+    }
+
+    pub fn place_token_in_spot(&mut self, slot: ConnectFourBoard) {
+        self.inner |= slot.inner;
+    }
+
+    pub fn check_win(self) -> Result<&'static str, &'static str> {
+        // only need to scan the current players board
+        let player_board: u64 = self.inner; // extract u64 only once instead of per check
+        for check_type in WinningLocations::WINNING_LOCATIONS {
+            let starting_column = check_type.starting_column;
+            let max_row = check_type.max_row;
+            let ending_column = check_type.ending_column;
+            let mask = check_type.win_type.inner; // get mask and get u64
+            let row_offset = ConnectFourBoard::ROW_OFFSET; // << offset of 8 moves the check up 1 row in 8x8 bitboard
+
+            // currently scans all possible win patterns and positions
+            for column in starting_column..ending_column {
+                for row in 0..max_row {
+                    // all checks start at row 0 upwards, but not all have the same height
+                    let offset = column + (row_offset * row);
+                    let mask = mask << offset;
+                    if mask == (mask & player_board) {
+                        return Ok("Winner!");
+                    }
+                }
+            }
+        }
+        Err("Oh no")
     }
 
     pub const EMPTY: Self = Self { inner: 0 };
@@ -61,21 +107,21 @@ impl ConnectFourBoard {
     ];
 
     pub const ROW_OFFSET: u8 = 8;
+}
 
-    pub fn get_current_board(self, other_board: &ConnectFourBoard) -> ConnectFourBoard {
-        ConnectFourBoard {
-            // return a new board combining both boards - not the cleanest way of doing this.
-            inner: self.inner | other_board.inner,
-        }
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct AllBoards {
+    pub red: ConnectFourBoard,
+    pub yellow: ConnectFourBoard,
+}
+
+impl AllBoards {
+    pub fn combine_boards(self) -> u64 {
+        return self.red.inner | self.yellow.inner;
     }
-
-    pub fn place_token_in_spot(&mut self, slot: ConnectFourBoard) {
-        self.inner |= slot.inner;
-    }
-
     pub fn find_lowest_space_in_column(self, chosen_column: ConnectFourBoard) -> ConnectFourBoard {
         // input the full board and the chosen column for the next token
-        let current_board_u64 = self.inner;
+        let current_board_u64 = self.combine_boards();
 
         // invert full board -> apply the column mask -> find least significant bit
         let empty_spots_in_column = !current_board_u64 & chosen_column.inner;
@@ -88,6 +134,52 @@ impl ConnectFourBoard {
         ConnectFourBoard {
             inner: lowest_space,
         }
+    }
+
+    pub fn print_full_board(self) {
+        // adjusted the Rustic Chess board print function to work for:
+        // 6-tall, 7-wide, boards + 2 players
+        let red = self.red.inner;
+        let yellow = self.yellow.inner;
+
+        const LAST_BIT: u64 = 63; // start at final bit
+        // bitboard unfurls from bottom left corner
+        // we need to print it from the top left.
+
+        for row in 2..8 {
+            // skip the top 2 rows Connect Four does not use
+            for column in (1..8).rev() {
+                // ignore end column + print from top row
+                let mask = 1u64 << (LAST_BIT - (row * 8) - column);
+                match (red & mask, yellow & mask) {
+                    // each slot can only have 1 player's token - check both at the same time
+                    (0, 0) => print!("_ "), // empty slot for both boards
+                    (_, 0) => print!("R "), // only red board has a token there
+                    (0, _) => print!("Y "), // only yellow board has a token there
+                    (_, _) => panic!("Both boards have a token here??"), // not reachable due to token placement logic - required for exhasutive match
+                }
+            }
+            println!(); // new line at the end of each row
+        }
+        println!("1 2 3 4 5 6 7\n") // column labelling 
+    }
+
+    pub fn victory_exit(self, msg: &str) {
+        println!("{msg}");
+        self.print_full_board();
+        self.write_board_to_file();
+        exit(1)
+    }
+
+    pub fn write_board_to_file(self) -> std::io::Result<()> {
+        let red_board = self.red.inner;
+        let yellow_board = self.yellow.inner;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("completed_games.txt")?;
+        writeln!(&mut file, "{red_board},{yellow_board}")?;
+        Ok(())
     }
 }
 
@@ -131,9 +223,4 @@ impl WinningLocations {
         Self::FORWARD_DIAGONAL,
         Self::BACKWARD_DIAGONAL,
     ];
-}
-
-pub struct sides {
-    red: ConnectFourBoard,
-    yellow: ConnectFourBoard,
 }
