@@ -132,3 +132,8 @@ impl WinningLocations {
         Self::BACKWARD_DIAGONAL,
     ];
 }
+
+pub struct sides {
+    red: ConnectFourBoard,
+    yellow: ConnectFourBoard,
+}

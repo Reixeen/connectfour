@@ -1,15 +1,10 @@
-use std::{io, process::exit};
+use std::{fs::OpenOptions, io, io::Write, process::exit};
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
 
 mod connect_four_board;
 use crate::connect_four_board::ConnectFourBoard;
 use crate::connect_four_board::WinningLocations;
-
-/* pub struct Position {
-    sides: [ConnectFourBoard; 2],
-}
- */
 
 #[derive(Debug, EnumIter, Display)]
 pub enum Player {
@@ -109,11 +104,21 @@ fn player_turn(
         // not the most idiomatic solution...
         Player::Red => {
             red_board.place_token_in_spot(lowest_spot);
-            check_win(&red_board);
+            match check_win(&red_board) {
+                Ok(msg) => {
+                    victory_exit(msg, &red_board, &yellow_board);
+                }
+                Err(msg) => println!("{msg}"),
+            };
         }
         Player::Yellow => {
             yellow_board.place_token_in_spot(lowest_spot);
-            check_win(&yellow_board);
+            match check_win(&yellow_board) {
+                Ok(msg) => {
+                    victory_exit(msg, &red_board, &yellow_board);
+                }
+                Err(msg) => println!("{msg}"),
+            };
         }
     }
 
@@ -122,38 +127,57 @@ fn player_turn(
     (red_board, yellow_board)
 }
 
-fn check_win(player_board: &ConnectFourBoard) {
+fn check_win(player_board: &ConnectFourBoard) -> Result<&'static str, &'static str> {
     // only need to scan the current players board
     let player_board: u64 = player_board.inner; // extract u64 only once instead of per check
     for check_type in WinningLocations::WINNING_LOCATIONS {
+        let starting_column = check_type.starting_column;
+        let max_row = check_type.max_row;
+        let ending_column = check_type.ending_column;
+        let mask = check_type.win_type.inner; // get mask and get u64
+        let row_offset = ConnectFourBoard::ROW_OFFSET; // << offset of 8 moves the check up 1 row in 8x8 bitboard
+
         // currently scans all possible win patterns and positions
-        generic_check(player_board, check_type);
-    }
-}
-
-fn generic_check(player_board: u64, check_type: WinningLocations) {
-    // function that can check any type of win
-    let starting_column = check_type.starting_column;
-    let max_row = check_type.max_row;
-    let ending_column = check_type.ending_column;
-
-    let mask = check_type.win_type.inner; // get mask and get u64
-
-    let row_offset = ConnectFourBoard::ROW_OFFSET; // << offset of 8 moves the check up 1 row in 8x8 bitboard
-
-    for column in starting_column..ending_column {
-        for row in 0..max_row {
-            // all checks start at row 0 upwards, but not all have the same height
-            let offset = column + (row_offset * row);
-            let mask = mask << offset;
-            if mask == (mask & player_board) {
-                println!("Winner!");
-                exit(0);
-            } else {
-                continue;
+        for column in starting_column..ending_column {
+            for row in 0..max_row {
+                // all checks start at row 0 upwards, but not all have the same height
+                let offset = column + (row_offset * row);
+                let mask = mask << offset;
+                if mask == (mask & player_board) {
+                    return Ok("Winner!");
+                }
             }
         }
     }
+    Err("Oh no")
+}
+
+fn victory_exit(msg: &str, red_board: &ConnectFourBoard, yellow_board: &ConnectFourBoard) {
+    println!("{msg}");
+    print_full_board(&red_board, &yellow_board);
+    write_board_to_file(&red_board, &yellow_board);
+    exit(1)
+}
+
+fn generate_completed_boards(num: i32) {
+    // select a random win pattern
+    // place it in a random valid location
+    // fill in the full board with all the other tokens of a game, or use a completed template with no wins
+    // save both player boards to a file
+}
+
+fn write_board_to_file(
+    red_board: &ConnectFourBoard,
+    yellow_board: &ConnectFourBoard,
+) -> std::io::Result<()> {
+    let red_board = red_board.inner;
+    let yellow_board = yellow_board.inner;
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("completed_games.txt")?;
+    writeln!(&mut file, "{red_board},{yellow_board}")?;
+    Ok(())
 }
 
 fn main() {
@@ -169,7 +193,6 @@ fn main() {
     // partly filled board for testing
 
     print_full_board(&red_board, &yellow_board);
-
     loop {
         for player in Player::iter() {
             (red_board, yellow_board) = player_turn(player, red_board, yellow_board);
