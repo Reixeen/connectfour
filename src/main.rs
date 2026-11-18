@@ -56,49 +56,29 @@ fn get_chosen_column() -> ConnectFourBoard {
     }
 }
 
-fn generate_completed_boards(num: i32) {
-    // select a random win pattern
-    // place it in a random valid location
-    // fill in the full board with all the other tokens of a game, or use a completed template with no wins
-    // save both player boards to a file
-}
-
 impl AllBoards {
     pub fn player_turn(&mut self, player: Player) {
-        let mut red_board = self.red;
-        let mut yellow_board = self.yellow;
         println!("It is player {player}'s turn:");
 
         let desired_column = get_chosen_column();
+        // this function prevents player_turn from being defined in connect_four_board.rs - for now.
 
         let lowest_spot = self.find_lowest_space_in_column(desired_column);
 
-        match player {
-            // not the most idiomatic solution...
-            Player::Red => {
-                red_board.place_token_in_spot(lowest_spot);
-                match red_board.check_win() {
-                    Ok(msg) => {
-                        self.red = red_board;
-                        self.victory_exit(msg);
-                    }
-                    Err(msg) => println!("{msg}"),
-                };
-            }
-            Player::Yellow => {
-                yellow_board.place_token_in_spot(lowest_spot);
-                match yellow_board.check_win() {
-                    Ok(msg) => {
-                        self.yellow = yellow_board;
-                        self.victory_exit(msg);
-                    }
-                    Err(msg) => println!("{msg}"),
-                };
-            }
-        }
+        self.place_token_in_spot(lowest_spot, &player);
+        // putting the token into the current players board
 
-        self.red = red_board;
-        self.yellow = yellow_board;
+        let board = self.get_board(&player);
+        // getting a copy of the current players board to pass to check_win
+        // will integrate this into check_win() in a future edit
+
+        match board.check_win() {
+            Ok(msg) => {
+                println!("Player {player} wins!!!");
+                self.victory_exit(msg);
+            }
+            Err(msg) => println!("{msg}"),
+        };
 
         self.print_full_board();
     }
@@ -107,19 +87,7 @@ impl AllBoards {
 fn main() {
     print_intro_text();
 
-    let mut red_board = ConnectFourBoard::new();
-    let mut yellow_board = ConnectFourBoard::new();
-
-    //let mut red_board = ConnectFourBoard { inner: 0x505051D };
-    // partly filled board for testing
-
-    //let mut yellow_board = ConnectFourBoard { inner: 0x400202222 };
-    // partly filled board for testing
-
-    let mut all_boards = AllBoards {
-        red: red_board,
-        yellow: yellow_board,
-    };
+    let mut all_boards = AllBoards::new();
 
     all_boards.print_full_board();
 

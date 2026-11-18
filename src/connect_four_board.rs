@@ -9,15 +9,6 @@ pub enum Player {
     Red,
     Yellow,
 }
-impl Player {
-    pub fn get_board(self, all_boards: AllBoards) -> ConnectFourBoard {
-        match self {
-            // not the most idiomatic solution...
-            Player::Red => all_boards.red,
-            Player::Yellow => all_boards.yellow,
-        }
-    }
-}
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct ConnectFourBoard {
@@ -116,9 +107,31 @@ pub struct AllBoards {
 }
 
 impl AllBoards {
+    pub fn new() -> AllBoards {
+        AllBoards {
+            red: ConnectFourBoard::new(),
+            yellow: ConnectFourBoard::new(),
+        }
+    }
+
+    pub fn place_token_in_spot(&mut self, slot: ConnectFourBoard, player: &Player) {
+        match player {
+            Player::Red => self.red.inner |= slot.inner,
+            Player::Yellow => self.yellow.inner |= slot.inner,
+        }
+    }
+
+    pub fn get_board(&mut self, player: &Player) -> ConnectFourBoard {
+        match player {
+            Player::Red => self.red,
+            Player::Yellow => self.yellow,
+        }
+    }
+
     pub fn combine_boards(self) -> u64 {
         return self.red.inner | self.yellow.inner;
     }
+
     pub fn find_lowest_space_in_column(self, chosen_column: ConnectFourBoard) -> ConnectFourBoard {
         // input the full board and the chosen column for the next token
         let current_board_u64 = self.combine_boards();
