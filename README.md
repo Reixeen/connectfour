@@ -10,45 +10,31 @@ A 7 wide board does not fit into sqrt(64) such as with chess' 8-wide board
 
 We use the standard chess bitboard implementation, but ignore the final column and top 2 rows, instead of re-factoring chess engine documentation for 7-wide boards
 
+```
 Chess board, for reference
-
 8|56,57,58,59,60,61,62,63|
-
 7|48,49,50,51,52,53,54,55|
-
 6|40,41,42,43,44,45,46,47|
-
 5|32,33,34,35,36,36,38,39|
-
 4|24,25,26,27,28,29,30,31|
-
 3|16,17,18,19,20,21,22,23|
-
 2|8 ,9 ,10,11,12,13,14,15|
-
 1|0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 |
-
   A ,B ,C ,D ,E ,F ,G ,H
-
-/////////////////////////////
+```
 
 ConnectFourBoard, with the chess bit values, for reference
 
+```
 |40,41,42,43,44,45,46|
-
 |32,33,34,35,36,36,38|
-
 |24,25,26,27,28,29,30|
-
 |16,17,18,19,20,21,22|
-
 |8_,9_,10,11,12,13,14|
-
 |0_,1_,2_,3_,4_,5_,6_|
-
 |A_,B_,C_,D_,E_,F_,G_|
 
-/////////////////////////////
+```
 
 2 u64 bitboards will be used to store the entire board - 1 per player
 
@@ -59,7 +45,7 @@ ConnectFourBoard, with the chess bit values, for reference
 Spaces 47 -> 64 must always be empty and must not be used in verification
 
 There are 4 directions in which boards need to be verified:
-
+```
  | Vertical
  
  - Horizontal
@@ -67,11 +53,12 @@ There are 4 directions in which boards need to be verified:
  / Forward diagonal
 
  \ Backward diagonal
+```
 
 We also need to ensure verification is only done with consecutive columns - this game has solid walls at each end and does not wrap
 This can be done in a few ways:
 1. runtime checks that the current adjudicated space is not wrapped from the previous
-2. have specific starting points for the mask of each verification type
+2. have specific starting points for the mask of each verification type => this is the current implementation
 3. create a mask for all possible wins, check them 1 by 1
 
 Huge thank you to the following:
@@ -80,7 +67,9 @@ https://nnajm.github.io/visual-bb/ for easy hex conversions of applicable bits
 
 https://rustic-chess.org/ for bitboard explanations
 
-https://github.com/cosmobobak for an excellent, inspiring, RustWeek talk about Viri without which I would not have known of bitboards:
+**And most importantly:**
+
+https://github.com/cosmobobak for an excellent, inspiring, RustWeek talk about Viri without which I would not have known the power of bitboards:
 
 https://www.youtube.com/watch?v=Gx21yYLwn10
 
