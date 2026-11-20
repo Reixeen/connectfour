@@ -194,6 +194,32 @@ impl AllBoards {
         writeln!(&mut file, "{red_board},{yellow_board}")?;
         Ok(())
     }
+
+    pub fn player_turn(&mut self, player: Player) {
+        println!("It is player {player}'s turn:");
+
+        let desired_column = get_chosen_column();
+        // this function prevents player_turn from being defined in connect_four_board.rs - for now.
+
+        let lowest_spot = self.find_lowest_space_in_column(desired_column);
+
+        self.place_token_in_spot(lowest_spot, &player);
+        // putting the token into the current players board
+
+        let board = self.get_board(&player);
+        // getting a copy of the current players board to pass to check_win
+        // will integrate this into check_win() in a future edit
+
+        match board.check_win() {
+            Ok(msg) => {
+                println!("Player {player} wins!!!");
+                self.victory_exit(msg);
+            }
+            Err(_) => println!(""), // do nothing, next turn proceeds
+        };
+
+        self.print_full_board();
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
@@ -236,4 +262,48 @@ impl WinningLocations {
         Self::FORWARD_DIAGONAL,
         Self::BACKWARD_DIAGONAL,
     ];
+}
+
+pub fn match_column_to_column(column: u8) -> Result<ConnectFourBoard, &'static str> {
+    match column {
+        1 => Ok(ConnectFourBoard::COLUMN_A),
+        2 => Ok(ConnectFourBoard::COLUMN_B),
+        3 => Ok(ConnectFourBoard::COLUMN_C),
+        4 => Ok(ConnectFourBoard::COLUMN_D),
+        5 => Ok(ConnectFourBoard::COLUMN_E),
+        6 => Ok(ConnectFourBoard::COLUMN_F),
+        7 => Ok(ConnectFourBoard::COLUMN_G),
+        _ => Err("Invalid column number"),
+    }
+}
+
+pub fn get_valid_integer() -> u8 {
+    loop {
+        let mut input = String::new();
+
+        io::stdin()
+            .read_line(&mut input)
+            .expect("Failed to read line");
+
+        match input.trim().parse::<u8>() {
+            Ok(num) => return num,
+            Err(_) => println!("Invalid input. Please enter a valid integer."),
+        }
+    }
+}
+
+pub fn get_chosen_column() -> ConnectFourBoard {
+    println!("Please choose a column to place a token");
+
+    let column_integer = get_valid_integer(); // only returns valid u8 integers 
+
+    let mapped_column = match_column_to_column(column_integer); // only 7 valid columns, not u8 columns
+    match mapped_column {
+        Ok(verified_column) => verified_column, // return on valid column
+        Err(msg) => {
+            // if valid integer is not between 1 and 7 inclusive
+            println!("{msg}");
+            get_chosen_column() // call the function again - more fun than the loop{} in get_valid_integer()
+        }
+    }
 }
